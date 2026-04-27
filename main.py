@@ -3,7 +3,7 @@ import hmac
 import hashlib
 import requests
 from fastapi import FastAPI, Request, HTTPException, Header
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 app = FastAPI()
 
@@ -15,13 +15,18 @@ TG_TOPIC_ID = os.getenv("TG_TOPIC_ID")
 ZSEND_WEBHOOK_SECRET = os.getenv("ZSEND_WEBHOOK_SECRET")
 
 
-
-
 def format_time(ts: str):
     if not ts:
         return "N/A"
     try:
-        return datetime.fromisoformat(ts.replace("Z", "+00:00")).strftime("%Y-%m-%d %H:%M:%S")
+        # 解析为 UTC 时间
+        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+        # 转换为 UTC+8
+        utc8 = timezone(timedelta(hours=8))
+        dt = dt.astimezone(utc8)
+
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
     except:
         return ts
 
