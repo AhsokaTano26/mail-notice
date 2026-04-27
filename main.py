@@ -46,3 +46,10 @@ async def handle_webhook(
     except Exception as e:
         print(f"ERROR: {str(e)}")
         return {"status": "error", "detail": str(e)}, 400
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    # 运行在 8080 端口
+    uvicorn.run(app, host="0.0.0.0", port=8080)
