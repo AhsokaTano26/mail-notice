@@ -36,8 +36,8 @@ jobs:
         with:
           context: .
           push: true
-          # 使用上面 meta 步骤生成的 tags
-          tags: ${{ id.meta.outputs.tags }}
-          labels: ${{ id.meta.outputs.labels }}
+          # 修复点：使用 steps 关键字
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
