@@ -28,7 +28,13 @@ async def handle_webhook(
 
     try:
         body = await request.json()
-        message = body.get("message", "No content")
+        print(body)
+        message = "类型："
+        message += body["type"]
+        message += "\n信息："
+        message += body["message"]
+        message += "\n时间："
+        message += body["timestamp"]
 
         # 2. 组装发送到 TG 的内容
         payload = {
