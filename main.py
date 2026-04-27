@@ -1,69 +1,48 @@
-import hmac
-import hashlib
-import json
-from fastapi import FastAPI, Request, HTTPException, Header
-import requests
 import os
+import requests
+from fastapi import FastAPI, HTTPException, Request, Query
+
 app = FastAPI()
 
-# --- 配置区 ---
+# 环境变量
 TG_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
 TG_CHAT_ID = os.getenv("TG_CHAT_ID")
 TG_TOPIC_ID = os.getenv("TG_TOPIC_ID")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")  # 这里的 SECRET 将作为 URL 中的 token
 
 
-# --------------
-
-def send_to_telegram(text: str):
-    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TG_CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown",
-        "message_thread_id": TG_TOPIC_ID
-    }
-    try:
-        resp = requests.post(url, json=payload)
-        resp.raise_for_status()
-    except Exception as e:
-        print(f"发送 TG 失败: {e}")
+@app.get("/")
+def health_check():
+    return {"status": "ok", "info": "Zeabur TG Bot is running"}
 
 
 @app.post("/webhook")
 async def handle_webhook(
         request: Request,
-        x_zeabur_secret: str = Header(None)  # 假设密钥放在 Header 的 X-Zeabur-Secret 中
+        token: str = Query(None)  # 从 URL 参数中获取 token
 ):
-    # 1. 验证密钥 (简单比对方式)
-    # 如果 Zeabur 允许在 URL 后加参数，也可以用 request.query_params 获取
-    if x_zeabur_secret != WEBHOOK_SECRET:
-        raise HTTPException(status_code=403, detail="Invalid Secret")
+    # 1. 验证 URL 中的 token 是否与环境变量一致
+    if not token or token != WEBHOOK_SECRET:
+        print(f"DEBUG: Invalid token received: {token}")
+        raise HTTPException(status_code=403, detail="Invalid Token")
 
-    # 2. 解析 Body
     try:
         body = await request.json()
-        msg_type = body.get("type", "Unknown")
-        message = body.get("message", "No message content")
-        timestamp = body.get("timestamp", "N/A")
+        message = body.get("message", "No content")
 
-        # 3. 格式化并转发
-        tg_text = (
-            f"🔔 *Zeabur Webhook 通知*\n\n"
-            f"👤 **类型**: {msg_type}\n"
-            f"📝 **内容**: {message}\n"
-            f"⏰ **时间**: `{timestamp}`"
-        )
+        # 2. 组装发送到 TG 的内容
+        payload = {
+            "chat_id": TG_CHAT_ID,
+            "text": f"🚀 **Zeabur 通知**\n\n{message}",
+            "parse_mode": "Markdown"
+        }
+        if TG_TOPIC_ID:
+            payload["message_thread_id"] = TG_TOPIC_ID
 
-        send_to_telegram(tg_text)
+        resp = requests.post(f"https://api.telegram.org/bot{TG_BOT_TOKEN}/sendMessage", json=payload)
+        resp.raise_for_status()
+
         return {"status": "success"}
-
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error parsing JSON: {str(e)}")
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    # 运行在 8080 端口
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+        print(f"ERROR: {str(e)}")
+        return {"status": "error", "detail": str(e)}, 400
