@@ -4,6 +4,8 @@ import hashlib
 import requests
 from fastapi import FastAPI, Request, HTTPException, Header
 
+from .format import build_message
+
 app = FastAPI()
 
 # 环境变量
@@ -50,42 +52,13 @@ async def handle_zsend_webhook(
 
     # 3. 解析 JSON
     payload = await request.json()
-    event = payload.get("event", "unknown")
-    email = payload.get("email", {})
-    data = payload.get("data", {})
-
-    # 4. 根据事件类型定制消息内容
-    status_emoji = {
-        "send": "📩", "delivery": "✅", "bounce": "❌",
-        "complaint": "⚠️", "reject": "🚫", "open": "👀", "click": "🖱️"
-    }.get(event, "🔔")
-
-    # 基础信息
-    msg_lines = [
-        f"{status_emoji} **Zeabur Email: {event.upper()}**",
-        f"📧 **主题**: `{email.get('subject')}`",
-        f"👤 **收件人**: `{', '.join(email.get('to', []))}`",
-    ]
-
-    # 针对性解析 data 字段
-    if event == "bounce":
-        msg_lines.append(f"❗ **退信类型**: {data.get('bounce_type')} ({data.get('bounce_subtype')})")
-        for rcpt in data.get("bounced_recipients", []):
-            msg_lines.append(f"🚩 **诊断码**: `{rcpt.get('diagnostic_code')}`")
-
-    elif event == "click":
-        msg_lines.append(f"🔗 **点击链接**: {data.get('link')}")
-
-    elif event == "delivery":
-        msg_lines.append(f"⏱️ **处理耗时**: {data.get('processing_time_millis')}ms")
+    msg = build_message(payload)
 
     # 5. 发送至 Telegram
-    tg_text = "\n".join(msg_lines)
-
     tg_payload = {
         "chat_id": TG_CHAT_ID,
-        "text": tg_text,
-        "parse_mode": "Markdown",
+        "text": msg,
+        "parse_mode": "HTML",
         "message_thread_id": TG_TOPIC_ID if TG_TOPIC_ID else None
     }
 
